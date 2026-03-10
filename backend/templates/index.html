@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bharat AI Pro v2.0</title>
+    <style>
+        /* --- 1. Modern Design Tokens & Variables --- */
+        :root {
+            /* Palette - Dark Premium SaaS */
+            --bg-app: #09090b; /* Zinc 950 */
+            --bg-sidebar: #09090b;
+            --bg-message-user: #18181b; /* Zinc 900 */
+            --bg-message-ai: transparent;
+            --bg-input: #18181b;
+            --bg-hover: #27272a; /* Zinc 800 */
+            
+            /* Borders & Lines */
+            --border-subtle: #27272a;
+            --border-focus: #3f3f46;
+            
+            /* Text */
+            --text-primary: #e4e4e7; /* Zinc 200 */
+            --text-secondary: #a1a1aa; /* Zinc 400 */
+            --text-muted: #52525b; /* Zinc 600 */
+            
+            /* Brand Color (Emerald/Teal for AI feel) */
+            --accent: #10b981; 
+            --accent-hover: #059669;
+            --accent-glow: rgba(16, 185, 129, 0.2);
+
+            /* Typography */
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+            
+            /* Spacing & Layout */
+            --sidebar-width: 280px;
+            --header-height: 60px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        
+        body {
+            background-color: var(--bg-app);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            font-size: 15px;
+            line-height: 1.6;
+        }
+
+        /* --- 2. Scrollbar Styling --- */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+        /* --- 3. Sidebar Styling --- */
+        aside {
+            width: var(--sidebar-width);
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border-subtle);
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 50;
+        }
+
+        /* New Chat Button */
+        .new-chat-btn {
+            background-color: var(--text-primary);
+            color: var(--bg-app);
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: transform 0.1s ease, opacity 0.2s;
+            margin-bottom: 24px;
+            box-shadow: 0 4px 12px rgba(255,255,255,0.05);
+        }
+        .new-chat-btn:hover { opacity: 0.9; }
+        .new-chat-btn:active { transform: scale(0.98); }
+        .new-chat-btn svg { width: 18px; height: 18px; }
+
+        /* Chat History List */
+        .history-section {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .history-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+            padding-left: 8px;
+            letter-spacing: 0.5px;
+        }
+        .history-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 6px;
+            color: var(--text-primary);
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-size: 14px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .history-item:hover { background-color: var(--bg-hover); }
+        .history-item svg { width: 16px; height: 16px; color: var(--text-secondary); flex-shrink: 0; }
+        
+        .sidebar-footer {
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 16px;
+            margin-top: 16px;
+        }
+        .user-profile {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        .user-profile:hover { background-color: var(--bg-hover); }
+        .user-avatar-small {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #6366f1, #a855f7);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: bold; color: white;
+        }
+
+        /* --- 4. Main Chat Area --- */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            background-color: var(--bg-app);
+        }
+
+        /* Mobile Header */
+        .mobile-header {
+            display: none;
+            height: 60px;
+            border-bottom: 1px solid var(--border-subtle);
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+        }
+        .menu-btn {
+            background: none; border: none; cursor: pointer; color: var(--text-primary);
+        }
+
+        /* Chat Container */
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 150px; /* Space for input */
+            scroll-behavior: smooth;
+        }
+
+        /* Welcome Screen */
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 20px;
+            opacity: 0;
+            animation: fadeIn 0.5s ease forwards;
+        }
+        .welcome-logo {
+            width: 64px; height: 64px;
+            background: var(--accent);
+            border-radius: 16px;
+            margin-bottom: 24px;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+        .welcome-title { font-size: 24px; font-weight: 600; margin-bottom: 8px; }
+        .welcome-subtitle { color: var(--text-secondary); max-width: 400px; margin-bottom: 40px; }
+
+        /* Message Bubbles */
+        .message-row {
+            width: 100%;
+            padding: 24px 0;
+            display: flex;
+            justify-content: center;
+            animation: slideUp 0.3s ease-out;
+            border-bottom: 1px solid transparent;
+        }
+        
+        .message-row.user { background-color: var(--bg-message-user); border-bottom: 1px solid var(--border-subtle); border-top: 1px solid var(--border-subtle); }
+        .message-row.ai { background-color: var(--bg-message-ai); }
+
+        .message-content {
+            width: 100%;
+            max-width: 768px; /* Reading width */
+            display: flex;
+            gap: 20px;
+            padding: 0 24px;
+        }
+
+        .avatar {
+            width: 32px; height: 32px;
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+            font-size: 14px; font-weight: 600;
+        }
+        .avatar.user-av { background: linear-gradient(135deg, #6366f1, #a855f7); }
+        .avatar.ai-av { background: var(--accent); color: #fff; }
+
+        .text-container {
+            flex: 1;
+            min-width: 0; /* Prevents overflow */
+            position: relative;
+        }
+
+        /* Message Actions (Copy, Edit, Regenerate) */
+        .message-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .message-row:hover .message-actions { opacity: 1; }
+        
+        .action-btn {
+            background: transparent;
+            border: 1px solid var(--border-subtle);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+        .action-btn:hover { background: var(--bg-hover); color: var(--text-primary); border-color: var(--text-muted); }
+        .action-btn svg { width: 14px; height: 14px; }
+
+        /* --- 5. Input Area (Glassmorphism) --- */
+        .input-wrapper-outer {
+            position: absolute;
+            bottom: 0; left: 0; width: 100%;
+            background: linear-gradient(180deg, rgba(9,9,11,0), rgba(9,9,11,0.9) 20%);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .input-container {
+            width: 100%;
+            max-width: 768px;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border-subtle);
+            border-radius: 16px;
+            padding: 12px 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: flex-end;
+            gap: 12px;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            position: relative;
+        }
+        .input-container:focus-within {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .input-tools {
+            display: flex; gap: 8px; padding-bottom: 6px;
+        }
+        .tool-btn {
+            background: none; border: none; color: var(--text-secondary);
+            cursor: pointer; padding: 4px; border-radius: 4px;
+            transition: color 0.2s;
+        }
+        .tool-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+
+        textarea {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            width: 100%;
+            resize: none;
+            max-height: 200px;
+            font-family: var(--font-sans);
+            font-size: 15px;
+            line-height: 1.5;
+            padding: 4px 0;
+        }
+
+        #send-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+            margin-bottom: 2px;
+        }
+        #send-btn:hover { background-color: var(--accent-hover); }
+        #send-btn:disabled { background-color: var(--bg-hover); color: var(--text-muted); cursor: not-allowed; }
+        #send-btn svg { width: 16px; height: 16px; }
+
+        /* Stop Generating Button (appears over input) */
+        .stop-generating {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-hover);
+            border: 1px solid var(--border-subtle);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 13px;
+            cursor: pointer;
+            display: none; /* Hidden by default */
+            align-items: center; gap: 8px;
+            z-index: 10;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            animation: fadeIn 0.3s;
+        }
+        .stop-generating:hover { background: #3f3f46; }
+
+        /* --- 6. Typography, Code & Markdown --- */
+        p { margin-bottom: 12px; }
+        p:last-child { margin-bottom: 0; }
+        
+        /* Code Blocks */
+        pre {
+            background: #0d0d0d;
+            border: 1px solid var(--border-subtle);
+            border-radius: 8px;
+            padding: 16px;
+            overflow-x: auto;
+            margin: 16px 0;
+            position: relative;
+        }
+        code { font-family: var(--font-mono); font-size: 13px; }
+        
+        /* Inline Code */
+        p code, li code {
+            background: rgba(255,255,255,0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #e2e8f0;
+        }
+        /* Block Code */
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: #d4d4d8;
+        }
+
+        .code-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border-subtle);
+            font-size: 12px; color: var(--text-muted);
+        }
+        .copy-btn {
+            background: transparent; border: none; color: var(--text-secondary);
+            cursor: pointer; font-size: 12px; display: flex; align-items: center; gap: 4px;
+            padding: 4px 8px; border-radius: 4px; transition: all 0.2s;
+        }
+        .copy-btn:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+        /* --- 7. Animations & Effects --- */
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes blink { 50% { opacity: 0; } }
+        
+        /* Typing Cursor */
+        .typing-cursor::after {
+            content: '▋';
+            display: inline-block;
+            vertical-align: bottom;
+            animation: blink 1s step-start infinite;
+            color: var(--accent);
+            margin-left: 2px;
+        }
+
+        /* Loading Dots */
+        .loading-dots { display: flex; gap: 4px; padding: 10px 0; }
+        .dot {
+            width: 6px; height: 6px;
+            background: var(--text-secondary);
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        /* Ripple Effect */
+        .ripple {
+            position: absolute; border-radius: 50%;
+            transform: scale(0); animation: ripple-anim 0.6s linear;
+            background-color: rgba(255, 255, 255, 0.3);
+            pointer-events: none;
+        }
+        @keyframes ripple-anim { to { transform: scale(4); opacity: 0; } }
+
+        /* --- 8. Responsiveness --- */
+        @media (max-width: 768px) {
+            aside {
+                position: fixed; height: 100%; left: -100%;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
+            }
+            aside.open { transform: translateX(100%); left: -280px; } /* Adjust for open state */
+            
+            .mobile-header { display: flex; }
+            .message-content { padding: 0 16px; gap: 12px; }
+            .input-wrapper-outer { padding: 16px; }
+            .avatar { width: 28px; height: 28px; font-size: 12px; }
+        }
+        
+        /* Overlay for mobile sidebar */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+            z-index: 40; display: none;
+        }
+        .overlay.active { display: block; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Mobile Overlay -->
+    <div class="overlay" id="overlay" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+        <button class="new-chat-btn" onclick="location.reload()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Chat
+        </button>
+
+        <div class="history-section">
+            <div class="history-label">Today</div>
+            <a class="history-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                React Component Design
+            </a>
+            <a class="history-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Python Script Debugging
+            </a>
+            
+            <div class="history-label" style="margin-top: 20px;">Previous 7 Days</div>
+            <a class="history-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Marketing Strategy
+            </a>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="user-profile">
+                <div class="user-avatar-small">U</div>
+                <div style="font-size: 14px; font-weight: 500;">User Account</div>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); text-align: center; margin-top: 10px;">
+                Bharat AI Pro v2.0 • Llama3
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Mobile Header -->
+        <header class="mobile-header">
+            <button class="menu-btn" onclick="toggleSidebar()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+            </button>
+            <span style="font-weight: 600;">Bharat AI Pro</span>
+            <button class="menu-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+        </header>
+
+        <!-- Chat Area -->
+        <div class="chat-container" id="chat-box">
+            
+            <!-- Welcome Screen (Initially Visible) -->
+            <div class="welcome-screen" id="welcome-screen">
+                <div class="welcome-logo">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/></svg>
+                </div>
+                <div class="welcome-title">How can I help you today?</div>
+                <div class="welcome-subtitle">I'm powered by Llama 3 via Ollama. Ask me to code, write, or analyze.</div>
+            </div>
+
+            <!-- Messages will be injected here -->
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-wrapper-outer">
+            
+            <!-- Stop Generating Button -->
+            <button class="stop-generating" id="stop-btn" onclick="stopGeneration()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+                Stop Generating
+            </button>
+
+            <div class="input-container">
+                <div class="input-tools">
+                    <button class="tool-btn" title="Attach file">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                    </button>
+                    <button class="tool-btn" title="Voice Input">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                    </button>
+                </div>
+
+                <textarea id="user-input" placeholder="Message Bharat AI..." rows="1"></textarea>
+                
+                <button id="send-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                </button>
+            </div>
+            <div style="font-size: 11px; color: var(--text-muted); margin-top: 10px;">
+                AI can make mistakes. Check important info.
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- Core Logic Elements ---
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        
+        let sessionId = 'session_' + Date.now();
+        let isGenerating = false;
+        let controller = new AbortController(); // For stopping requests
+
+        // --- UI Interactions ---
+
+        // 1. Sidebar Toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.toggle('open');
+            overlay.classList.toggle('active');
+        }
+
+        // 2. Auto-resize Textarea
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if(this.value === '') this.style.height = '24px'; // Reset to single line
+        });
+
+        // 3. Enter key to send
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+        sendBtn.addEventListener('click', handleSend);
+
+        // 4. Ripple Effect for Buttons
+        function createRipple(event) {
+            const button = event.currentTarget;
+            const circle = document.createElement("span");
+            const diameter = Math.max(button.clientWidth, button.clientHeight);
+            const radius = diameter / 2;
+
+            circle.style.width = circle.style.height = `${diameter}px`;
+            circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+            circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
+            circle.classList.add("ripple");
+
+            const ripple = button.getElementsByClassName("ripple")[0];
+            if (ripple) { ripple.remove(); }
+
+            button.appendChild(circle);
+        }
+        const buttons = document.getElementsByTagName("button");
+        for (const button of buttons) {
+            button.addEventListener("click", createRipple);
+        }
+
+        // --- Main Chat Logic ---
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text || isGenerating) return;
+
+            // 1. UI Reset
+            userInput.value = '';
+            userInput.style.height = '24px';
+            welcomeScreen.style.display = 'none'; // Hide welcome screen
+            isGenerating = true;
+            controller = new AbortController(); // New abort controller for this request
+            sendBtn.disabled = true;
+            stopBtn.style.display = 'flex'; // Show stop button
+
+            // 2. Add User Message
+            appendMessage('user', text);
+
+            // 3. Add Placeholder for AI (with typing animation)
+            const aiMessageDiv = appendMessage('ai', '');
+            const textContainer = aiMessageDiv.querySelector('.text-container');
+            
+            // Loading Dots
+            textContainer.innerHTML = `
+                <div class="loading-dots">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+            `;
+            
+            // 4. Stream Response (Backend Logic Preserved)
+            try {
+                const response = await fetch('/api/chat-stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, session_id: sessionId }),
+                    signal: controller.signal
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                // Clear loading, prepare for streaming
+                textContainer.innerHTML = ''; 
+                const cursorSpan = document.createElement('span');
+                cursorSpan.className = 'typing-cursor';
+                textContainer.appendChild(cursorSpan);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullRawText = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullRawText += chunk;
+                    
+                    // Append raw text to cursor for real-time effect
+                    cursorSpan.textContent = chunk; 
+                    
+                    // Smooth scroll to bottom
+                    chatBox.scrollTo({ top: chatBox.scrollHeight, behavior: 'smooth' });
+                }
+
+                // 5. Final Polish (Markdown Parsing)
+                cursorSpan.remove(); // Remove blinking cursor
+                textContainer.innerHTML = parseMarkdown(fullRawText);
+                
+                // Add action buttons (Copy, Regenerate, Edit)
+                addMessageActions(textContainer, fullRawText);
+                addCopyButtons(textContainer);
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    textContainer.innerHTML += '<br><em>Generation stopped by user.</em>';
+                } else {
+                    textContainer.innerHTML = `<span style="color: #ef4444">Error: ${error.message}</span>`;
+                }
+            } finally {
+                isGenerating = false;
+                sendBtn.disabled = false;
+                stopBtn.style.display = 'none'; // Hide stop button
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function stopGeneration() {
+            if (isGenerating) {
+                controller.abort();
+            }
+        }
+
+        function appendMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `message-row ${role}`;
+            
+            // Use SVG for avatars
+            const userIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+            const aiIcon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/></svg>`;
+
+            div.innerHTML = `
+                <div class="message-content">
+                    <div class="avatar ${role === 'user' ? 'user-av' : 'ai-av'}">
+                        ${role === 'user' ? userIcon : aiIcon}
+                    </div>
+                    <div class="text-container">${parseMarkdown(text)}</div>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return div;
+        }
+
+        // --- Helper: Action Buttons (Edit, Copy, Regenerate) ---
+        function addMessageActions(container, text) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'message-actions';
+            actionsDiv.innerHTML = `
+                <button class="action-btn" onclick="copyToClipboard(this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                    Copy
+                </button>
+                <button class="action-btn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
+                <button class="action-btn" onclick="alert('Regeneration feature would call the API again with previous context.')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                    Regenerate
+                </button>
+            `;
+            container.appendChild(actionsDiv);
+        }
+
+        function copyToClipboard(btn) {
+            // Find the text content in the container (simplified for this demo)
+            const text = btn.closest('.text-container').innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `Copied!`;
+                setTimeout(() => btn.innerHTML = originalText, 2000);
+            });
+        }
+
+        // --- Helper: Code Block Copy Buttons ---
+        function addCopyButtons(container) {
+            container.querySelectorAll('pre').forEach(pre => {
+                const header = document.createElement('div');
+                header.className = 'code-header';
+                
+                // Try to guess language from class (simple version)
+                const langMatch = pre.querySelector('code').className.match(/language-(\w+)/);
+                const lang = langMatch ? langMatch[1] : 'Code';
+
+                header.innerHTML = `
+                    <span>${lang}</span>
+                    <button class="copy-btn">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                        Copy
+                    </button>
+                `;
+                pre.insertBefore(header, pre.firstChild);
+                
+                // Add click handler
+                header.querySelector('.copy-btn').addEventListener('click', () => {
+                    const code = pre.querySelector('code').innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        const btn = header.querySelector('.copy-btn');
+                        const originalHTML = btn.innerHTML;
+                        btn.innerHTML = 'Copied!';
+                        setTimeout(() => btn.innerHTML = originalHTML, 2000);
+                    });
+                });
+            });
+        }
+
+        // --- Markdown Parser (Enhanced) ---
+        function parseMarkdown(text) {
+            if (!text) return '';
+
+            // 1. Escape HTML
+            let html = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // 2. Code Blocks (```code```)
+            // Using a non-greedy match to capture content between triple backticks
+            html = html.replace(/```(\w*)([\s\S]*?)```/g, (match, lang, code) => {
+                return `<pre><code class="language-${lang}">${code.trim()}</code></pre>`;
+            });
+
+            // 3. Inline Code (`code`)
+            html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+            // 4. Bold (**text**)
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+            // 5. Italic (*text*)
+            html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+
+            // 6. Line breaks
+            html = html.replace(/\n/g, '<br>');
+
+            return html;
+        }
+
+        // --- Init ---
+        window.addEventListener('load', async () => {
+            try {
+                // Check for history (Existing logic preserved)
+                const res = await fetch(`/api/history/${sessionId}`);
+                if (res.ok) {
+                    const history = await res.json();
+                    // Logic to load history would go here
+                }
+            } catch (e) {
+                console.log("Started new session");
+            }
+        });
+    </script>
+</body>
+</html>

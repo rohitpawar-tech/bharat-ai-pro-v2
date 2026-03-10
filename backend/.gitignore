@@ -1,0 +1,9 @@
+# Python
+*.pyc
+__pycache__/
+.env
+.venv/
+backend/venv/
+
+# VS Code
+.vscode/

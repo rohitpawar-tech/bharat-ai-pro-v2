@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bharat AI Pro</title>
+    <style>
+        :root {
+            --bg-color: #343541;
+            --chat-bg: #444654;
+            --sidebar-bg: #202123;
+            --text-color: #ececf1;
+            --input-bg: #40414f;
+            --border-color: #565869;
+            --accent: #10a37f;
+            --user-bubble: #343541;
+            --ai-bubble: #444654;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        body { background-color: var(--bg-color); color: var(--text-color); display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar */
+        aside {
+            width: 260px;
+            background-color: var(--sidebar-bg);
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            border-right: 1px solid black;
+            transition: transform 0.3s ease;
+        }
+        
+        .new-chat-btn {
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+            color: white;
+            background: transparent;
+            margin-bottom: 20px;
+        }
+        .new-chat-btn:hover { background-color: var(--chat-bg); }
+
+        /* Main Chat Area */
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .chat-container {
+            flex: 1;
+            overflow-y: auto;
+            scroll-behavior: smooth;
+            padding-bottom: 120px; /* Space for input */
+        }
+
+        .message-row {
+            padding: 24px 0;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            width: 100%;
+        }
+
+        .message-row.ai { background-color: var(--ai-bubble); }
+        .message-row.user { background-color: var(--user-bubble); }
+
+        .message-content {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+            padding: 0 20px;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        .avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-weight: bold;
+        }
+        .avatar.user-av { background: #5436DA; }
+        .avatar.ai-av { background: var(--accent); }
+
+        /* Input Area */
+        .input-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: linear-gradient(180deg, rgba(53,53,65,0), var(--bg-color) 40%);
+            padding: 30px 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .input-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            background-color: var(--input-bg);
+            border-radius: 12px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            border: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            align-items: flex-end;
+            padding: 10px 10px 10px 16px;
+        }
+
+        textarea {
+            background: transparent;
+            border: none;
+            color: white;
+            width: 100%;
+            resize: none;
+            max-height: 200px;
+            outline: none;
+            font-size: 16px;
+            line-height: 1.5;
+            padding-right: 40px;
+            height: 24px; /* Init height */
+        }
+
+        #send-btn {
+            position: absolute;
+            bottom: 8px;
+            right: 10px;
+            background: transparent;
+            border: none;
+            color: var(--text-color);
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        #send-btn:hover { background-color: #202123; }
+        #send-btn:disabled { color: #8e8ea0; cursor: not-allowed; }
+
+        /* Code Blocks & Markdown Styling */
+        pre {
+            background: black;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+            position: relative;
+        }
+        code { font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9em; }
+        p { margin-bottom: 10px; }
+        p:last-child { margin-bottom: 0; }
+        
+        .copy-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255,255,255,0.2);
+            border: none;
+            color: white;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: none; /* Shown via JS */
+        }
+        pre:hover .copy-btn { display: block; }
+
+        /* Typing Cursor */
+        .typing-cursor::after {
+            content: '▋';
+            display: inline-block;
+            vertical-align: bottom;
+            animation: blink 1s step-start infinite;
+            color: var(--accent);
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Loading Spinner */
+        .loading {
+            display: flex;
+            gap: 5px;
+            padding: 10px 0;
+        }
+        .dot {
+            width: 8px;
+            height: 8px;
+            background: #8e8ea0;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .dot:nth-child(1) { animation-delay: -0.32s; }
+        .dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+        @media (max-width: 768px) {
+            aside { display: none; }
+            .message-content { padding: 0 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <aside>
+        <button class="new-chat-btn" onclick="location.reload()">
+            <span>+</span> New Chat
+        </button>
+        <div style="font-size: 12px; color: #8e8ea0; margin-top: auto;">
+            <p>Bharat AI Pro v2.0</p>
+            <p>Llama3 + Ollama</p>
+        </div>
+    </aside>
+
+    <!-- Main Chat Interface -->
+    <main>
+        <div class="chat-container" id="chat-box">
+            <!-- Welcome Message -->
+            <div class="message-row ai">
+                <div class="message-content">
+                    <div class="avatar ai-av">AI</div>
+                    <div class="text">
+                        <p><strong>Hello! I am Bharat AI Pro.</strong></p>
+                        <p>I can help you with coding, DevOps, web search, and general questions. How can I help you today?</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <div class="input-wrapper">
+                <textarea id="user-input" placeholder="Send a message to Bharat AI..." rows="1"></textarea>
+                <button id="send-btn">
+                    <svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round" height="16" width="16" xmlns="http://www.w3.org/2000/svg"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const chatBox = document.getElementById('chat-box');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        let sessionId = 'session_' + Date.now();
+        let isGenerating = false;
+
+        // Auto-resize textarea
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if(this.value === '') this.style.height = '24px';
+        });
+
+        // Handle Enter key
+        userInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+            }
+        });
+
+        sendBtn.addEventListener('click', handleSend);
+
+        async function handleSend() {
+            const text = userInput.value.trim();
+            if (!text || isGenerating) return;
+
+            // UI Reset
+            userInput.value = '';
+            userInput.style.height = '24px';
+            isGenerating = true;
+            sendBtn.disabled = true;
+
+            // 1. Add User Message
+            appendMessage('user', text);
+
+            // 2. Add Placeholder for AI (with loading)
+            const aiMessageDiv = appendMessage('ai', '');
+            const textContainer = aiMessageDiv.querySelector('.text');
+            textContainer.innerHTML = `
+                <div class="loading">
+                    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+                </div>
+            `;
+            
+            // 3. Stream Response
+            try {
+                const response = await fetch('/api/chat-stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, session_id: sessionId })
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                // Clear loading, prepare for streaming
+                textContainer.innerHTML = ''; 
+                const cursorSpan = document.createElement('span');
+                cursorSpan.className = 'typing-cursor';
+                textContainer.appendChild(cursorSpan);
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let fullRawText = '';
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullRawText += chunk;
+                    
+                    // Simple real-time render (Basic text)
+                    // Note: A full markdown parser on every chunk is expensive, 
+                    // so we just append text and format at the end or handle code blocks carefully.
+                    cursorSpan.textContent = chunk; 
+                    
+                    // Smooth scroll
+                    chatBox.scrollTop = chatBox.scrollHeight;
+                }
+
+                // 4. Final Polish (Markdown Parsing)
+                cursorSpan.remove(); // Remove cursor
+                textContainer.innerHTML = parseMarkdown(fullRawText);
+                
+                // Add Copy Buttons
+                addCopyButtons(textContainer);
+
+            } catch (error) {
+                textContainer.innerHTML = `<span style="color: #ff6b6b">Error: ${error.message}</span>`;
+            } finally {
+                isGenerating = false;
+                sendBtn.disabled = false;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
+        }
+
+        function appendMessage(role, text) {
+            const div = document.createElement('div');
+            div.className = `message-row ${role}`;
+            div.innerHTML = `
+                <div class="message-content">
+                    <div class="avatar ${role === 'user' ? 'user-av' : 'ai-av'}">
+                        ${role === 'user' ? 'U' : 'AI'}
+                    </div>
+                    <div class="text">${parseMarkdown(text)}</div>
+                </div>
+            `;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return div;
+        }
+
+        // --- 8️⃣ Frontend Improvements (Markdown & Utils) ---
+
+        function parseMarkdown(text) {
+            if (!text) return '';
+
+            // 1. Escape HTML (basic security)
+            let html = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // 2. Code Blocks (```code```)
+            html = html.replace(/```(\w*)([\s\S]*?)```/g, (match, lang, code) => {
+                return `<pre><button class="copy-btn">Copy</button><code class="language-${lang}">${code.trim()}</code></pre>`;
+            });
+
+            // 3. Inline Code (`code`)
+            html = html.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.1); padding:2px 4px; border-radius:3px;">$1</code>');
+
+            // 4. Bold (**text**)
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+            // 5. Line breaks
+            html = html.replace(/\n/g, '<br>');
+
+            return html;
+        }
+
+        function addCopyButtons(container) {
+            container.querySelectorAll('pre .copy-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const code = btn.nextElementSibling.innerText;
+                    navigator.clipboard.writeText(code).then(() => {
+                        const originalText = btn.innerText;
+                        btn.innerText = 'Copied!';
+                        setTimeout(() => btn.innerText = originalText, 2000);
+                    });
+                });
+            });
+        }
+
+        // Load history on startup
+        window.addEventListener('load', async () => {
+            try {
+                const res = await fetch(`/api/history/${sessionId}`);
+                if (res.ok) {
+                    const history = await res.json();
+                    // Note: This is simplified. In production, you'd fetch the actual session ID from localStorage
+                    // For now, we start fresh or manually set session ID logic.
+                }
+            } catch (e) {
+                console.log("No history loaded (new session)");
+            }
+        });
+    </script>
+</body>
+</html>

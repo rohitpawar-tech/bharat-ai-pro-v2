@@ -1,9 +1,10 @@
-# Python
-*.pyc
-__pycache__/
-.env
 .venv/
-backend/venv/
-
-# VS Code
+__pycache__/
+*.pyc
+*.db
+.env
 .vscode/
+.idea/
+node_modules/
+dist/
+build/

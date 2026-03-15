@@ -1,4 +1,4 @@
-```markdown
+
 <div align="center">
 
 ![Bharat AI Pro Logo](images/logo.png)
@@ -138,4 +138,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 [⬆ Back to Top](#bharat-ai-pro)
 
 </div>
-```
+

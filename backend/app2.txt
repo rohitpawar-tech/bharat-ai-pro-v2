@@ -1,0 +1,224 @@
+import os
+import time
+import uuid
+import cv2
+import base64
+import requests
+from flask import Flask, request, jsonify, Response, stream_with_context, render_template
+from werkzeug.utils import secure_filename
+from ollama import Client
+
+# --- Configuration ---
+app = Flask(__name__, template_folder='templates')
+
+# Directories
+UPLOAD_FOLDER = 'uploads'
+TEMP_FRAMES_FOLDER = 'temp_frames'
+
+# Ensure directories exist
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(TEMP_FRAMES_FOLDER, exist_ok=True)
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20MB limit
+
+# Ollama Client Configuration
+# Ensure Ollama is running locally on default port 11434
+ollama_client = Client(host='http://localhost:11434')
+
+TEXT_MODEL = "llama3"  # or "mistral" or "gemma"
+VISION_MODEL = "llava" # Ensure you run `ollama pull llava`
+
+# --- Helper Functions ---
+
+def get_image_base64(path):
+    """Convert an image file to base64 string."""
+    with open(path, "rb") as image_file:
+        return base64.b64encode(image_file.read()).decode('utf-8')
+
+def analyze_image_with_llava(image_path, user_prompt):
+    """
+    Sends image to LLaVA model for analysis.
+    """
+    try:
+        # Using python ollama library with images path
+        response = ollama_client.chat(
+            model=VISION_MODEL,
+            messages=[{
+                'role': 'user',
+                'content': user_prompt,
+                'images': [image_path]
+            }]
+        )
+        return response['message']['content']
+    except Exception as e:
+        return f"Error analyzing image: {str(e)}"
+
+def extract_key_frames(video_path, count=3):
+    """
+    Extracts N frames uniformly from the video using OpenCV.
+    Returns list of frame file paths.
+    """
+    cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    if total_frames == 0:
+        return []
+
+    frame_indices = [int(i * total_frames / count) for i in range(count)]
+    frame_paths = []
+
+    saved_base_name = os.path.join(TEMP_FRAMES_FOLDER, str(uuid.uuid4()))
+
+    for i, frame_idx in enumerate(frame_indices):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        ret, frame = cap.read()
+        if ret:
+            frame_path = f"{saved_base_name}_frame_{i}.jpg"
+            cv2.imwrite(frame_path, frame)
+            frame_paths.append(frame_path)
+    
+    cap.release()
+    return frame_paths
+
+def analyze_video_with_llava(video_path, user_prompt):
+    """
+    Extracts key frames and analyzes them with LLaVA.
+    """
+    try:
+        # 1. Extract Frames
+        frames = extract_key_frames(video_path, count=3)
+        if not frames:
+            return "Could not extract frames from video."
+
+        # 2. Analyze each frame
+        frame_analyses = []
+        for i, frame_path in enumerate(frames):
+            analysis = analyze_image_with_llava(
+                frame_path, 
+                f"Frame {i+1}: Describe this visual in detail. Objects, people, setting, actions."
+            )
+            frame_analyses.append(f"Frame {i+1} Analysis: {analysis}")
+
+        # 3. Summarize
+        context = "\n".join(frame_analyses)
+        summary_prompt = f"""
+        User Query: {user_prompt}
+        
+        Here are analyses of 3 key frames from the video:
+        {context}
+        
+        Based on these frame descriptions, provide a comprehensive answer to the User Query. 
+        If the user just asked to analyze the video, summarize the main activity and scene.
+        """
+        
+        # Use TEXT_MODEL to summarize the analysis for better flow
+        response = ollama_client.chat(
+            model=TEXT_MODEL, 
+            messages=[{'role': 'user', 'content': summary_prompt}]
+        )
+        
+        return response['message']['content']
+
+    except Exception as e:
+        return f"Error analyzing video: {str(e)}"
+    finally:
+        # Cleanup temp frames
+        if 'frames' in locals():
+            for f in frames:
+                if os.path.exists(f):
+                    os.remove(f)
+
+# --- ROUTES ---
+
+@app.route('/')
+def home():
+    """
+    Homepage Route: Serves the Frontend HTML.
+    """
+    return render_template('index.html')
+
+@app.route('/api/chat-stream', methods=['POST'])
+def chat_stream():
+    """
+    Handles standard text-only streaming chat.
+    """
+    data = request.json
+    message = data.get('message', '')
+    session_id = data.get('session_id', 'default')
+
+    def generate():
+        try:
+            stream = ollama_client.chat(
+                model=TEXT_MODEL,
+                messages=[{'role': 'user', 'content': message}],
+                stream=True
+            )
+            for chunk in stream:
+                if 'content' in chunk['message']:
+                    yield chunk['message']['content']
+        except Exception as e:
+            yield f"\n[System Error: {str(e)}]"
+
+    return Response(stream_with_context(generate()), content_type='text/plain')
+
+@app.route('/api/analyze-media', methods=['POST'])
+def analyze_media():
+    """
+    Handles Image and Video uploads for AI analysis.
+    Returns JSON response (non-streaming for robustness of file processing).
+    """
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+    user_message = request.form.get('message', 'Analyze this media in detail.')
+    
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    if file:
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # Detect MIME type
+        mime_type = file.mimetype
+        response_text = ""
+
+        try:
+            if mime_type.startswith('image/'):
+                response_text = analyze_image_with_llava(filepath, user_message)
+            elif mime_type.startswith('video/'):
+                response_text = analyze_video_with_llava(filepath, user_message)
+            else:
+                response_text = "Unsupported file type. Please upload an image or video."
+        
+        except Exception as e:
+            response_text = f"Server Error: {str(e)}"
+        
+        finally:
+            # Clean up uploaded file
+            if os.path.exists(filepath):
+                os.remove(filepath)
+
+        return jsonify({
+            'response': response_text,
+            'file_name': filename,
+            'file_type': mime_type
+        })
+
+@app.route('/api/history/<session_id>')
+def get_history(session_id):
+    # Placeholder for history logic
+    return jsonify([])
+
+if __name__ == '__main__':
+    print("--------------------------------------------------")
+    print("   Bharat AI Pro v2.1 - Backend Running          ")
+    print("--------------------------------------------------")
+    print(f"   Access the app at: http://127.0.0.1:5000/")
+    print(f"   Text Model:   {TEXT_MODEL}")
+    print(f"   Vision Model: {VISION_MODEL}")
+    print("--------------------------------------------------")
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", debug=True, port=5000)

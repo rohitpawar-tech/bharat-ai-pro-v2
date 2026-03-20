@@ -3,6 +3,8 @@
 
 ![Bharat AI Pro Logo](images/logo.png)
 
+
+
 # Bharat AI Pro
 
 ### India’s Indigenous AI Assistant for Healthcare, Education, Productivity, and Hyperlocal Services

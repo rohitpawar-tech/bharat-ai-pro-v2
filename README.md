@@ -71,6 +71,7 @@ To run **Bharat AI Pro** locally, follow these steps:
 - pip (Python package manager)
 - Ollama (for local LLM support) [Download here](https://ollama.com/)
 
+
 ### Clone the Repository
 ```bash
 git clone https://github.com/yourusername/bharat-ai-pro.git

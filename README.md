@@ -15,6 +15,7 @@
 
 **Bharat AI Pro** is a cutting-edge, open-source artificial intelligence framework designed specifically for the Indian context. Leveraging the power of local Large Language Models (LLMs) and lightweight APIs, it provides secure, offline-capable, and hyperlocal solutions for healthcare diagnostics, educational tutoring, and productivity enhancement.
 
+
 [🚀 Get Started](#installation) • [📖 Documentation](#usage) • [🤝 Contributing](#contributing) • [🐛 Report Bug](https://github.com/yourusername/bharat-ai-pro/issues)
 
 </div>

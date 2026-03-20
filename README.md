@@ -98,6 +98,7 @@ ollama pull llama3
 
 ## 🚀 Usage
 
+
 1. **Start the Flask Server**:
    ```bash
    python app.py
